@@ -179,6 +179,15 @@ class Game {
         this.initialTime = Date.now();
 
         this.boid = new Boid(5, 5);
+        const pathPoints = [
+            new Vector(0, c.height / 2),
+            new Vector(c.width / 5, c.height / 2),
+            new Vector(c.width * 2 / 5, c.height / 4),
+            new Vector(c.width * 3 / 5, c.height - c.height / 4),
+            new Vector(c.width * 4 / 5, c.height / 6),
+            new Vector(c.width, c.height / 2),
+        ];
+        this.path = new Path(2, pathPoints);
     }
 
     update(dt) {
@@ -190,11 +199,11 @@ class Game {
     render() {
         cc.clearRect(0, 0, c.width, c.height);
 
-        if (target) {
-            cc.fillStyle = "#0ff";
-            cc.fillRect(target.x - 30, target.y - 30, 60, 60);
-        }
-
+        // if (target) {
+        //     cc.fillStyle = "#0ff";
+        //     cc.fillRect(target.x - 30, target.y - 30, 60, 60);
+        // }
+        this.path.render();
         this.boid.render();
     }
 }
@@ -286,5 +295,38 @@ class Boid extends Entity {
         cc.arc(this.position.x, this.position.y, this.radius, 0, 2 * Math.PI);
         cc.closePath();
         cc.fill();
+    }
+}
+
+class Path {
+    constructor(radius, points) {
+        this.points = points || [];
+        this.radius = radius;
+    }
+
+    addPoint(point) {
+        this.points.push(point);
+    }
+
+    getStart() {
+        return this.points[0];
+    }
+
+    getEnd() {
+        return this.points[this.points.length - 1];
+    }
+
+    render() {
+        for (let i = 0; i < this.points.length - 1; i++) {
+            cc.strokeStyle = "#f00";
+            cc.strokeWidth = 2;
+            cc.beginPath();
+            let current = this.points[i];
+            let next = this.points[i + 1];
+            cc.moveTo(current.x, current.y);
+            cc.lineTo(next.x, next.y);
+            cc.closePath();
+            cc.stroke();
+        }
     }
 }
