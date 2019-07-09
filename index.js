@@ -23,6 +23,10 @@ const heuristic = (a, b) => {
     // return Math.abs(dx) + Math.abs(dy);
 };
 
+const map = (num, x1, y1, x2, y2) => {
+    return (num - x1) * (y2 - x2) / (y1 - x1) + x2;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     c = document.getElementById('canvas');
     cc = c.getContext('2d');
@@ -161,6 +165,12 @@ class Vector {
         this.y = limited.y;
         return this;
     }
+
+    dist(vector) {
+        const dx = vector.x - this.x;
+        const dy = vector.y - this.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
 }
 
 
@@ -173,6 +183,7 @@ class Game {
 
     update(dt) {
         this.boid.seek(target);
+        this.boid.arrive(target);
         this.boid.update(dt);
     }
 
@@ -181,7 +192,7 @@ class Game {
 
         if (target) {
             cc.fillStyle = "#0ff";
-            cc.fillRect(target.x - 10, target.y - 10, 20, 20);
+            cc.fillRect(target.x - 30, target.y - 30, 60, 60);
         }
 
         this.boid.render();
@@ -200,14 +211,15 @@ class Entity {
         this.forces = {};
     }
 
-    addForce(name, force) {
-        this.forces[name] = force;
+    addForce(force) {
+        // this.forces[name] = force;
+        this.acceleration.add(force);
     }
 
     applyForce() {
-        const totalForce = new Vector();
-        Object.values(this.forces).forEach(force => totalForce.add(force));
-        this.acceleration = totalForce;
+        const netForce = new Vector();
+        Object.values(this.forces).forEach(force => netForce.add(force));
+        this.acceleration = netForce;
     }
 }
 
@@ -215,7 +227,8 @@ class Boid extends Entity {
     constructor(x, y) {
         super(x, y);
         // this.maxForce = 1;
-        this.radius = 4;
+        this.radius = 10;
+        this.perceptionRadius = this.radius * 2;
     }
 
     // applyForce(force) {
@@ -228,7 +241,23 @@ class Boid extends Entity {
         desired.setMagnitude(this.maxSpeed);
         const steering = Vector.sub(desired, this.velocity);
         steering.setMagnitude(this.maxForce);
-        this.addForce('steer', steering);
+        this.addForce(steering);
+    }
+
+    arrive(target) {
+        if (!target) return;
+        const desired = Vector.sub(target, this.position);
+        const d = desired.getMagnitude();
+
+        if (d < this.perceptionRadius) {
+            desired.setMagnitude(map(d, 0, this.perceptionRadius, 0, this.maxSpeed));
+        } else desired.setMagnitude(this.maxSpeed);
+        const steer = Vector.sub(desired, this.velocity).setMagnitude(this.maxForce);
+        this.addForce(steer);
+        // desired.setMagnitude(this.maxSpeed);
+        // const steering = Vector.sub(desired, this.velocity);
+        // steering.setMagnitude(this.maxForce);
+        // this.addForce('steer', steering);
     }
 
     checkBounds() {
@@ -240,14 +269,15 @@ class Boid extends Entity {
     }
 
     update(dt) {
-        this.applyForce();
-
         this.velocity.add(this.acceleration);
+        // console.log(this.velocity);
+        // console.log(this.acceleration);
         this.position.add(this.velocity);
 
         // this.velocity.add(this.acceleration.multiply(dt));
         // this.position.add(this.velocity.multiply(dt));
         // this.checkBounds();
+        this.acceleration.multiply(0);
     }
 
     render() {
