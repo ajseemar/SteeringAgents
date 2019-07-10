@@ -139,7 +139,8 @@ class Vector {
     }
 
     dot(vector) {
-        return this.x * vector.x + this.y * vector.y;
+        // debugger
+        return (this.x * vector.x) + (this.y * vector.y);
     }
 
     angleBetween(vector, degrees) {
@@ -169,11 +170,21 @@ class Vector {
     dist(vector) {
         const dx = vector.x - this.x;
         const dy = vector.y - this.y;
-        return Math.sqrt(dx * dx + dy * dy);
+        return Math.sqrt((dx * dx) + (dy * dy));
     }
 
     copy() {
         return new Vector(this.x, this.y);
+    }
+
+    static getNormalPoint(p, a, b) {
+        const ap = Vector.sub(p, a);
+        const ab = Vector.sub(b, a);
+
+        const abNorm = ab.normalize();
+        abNorm.multiply(ap.dot(abNorm));
+
+        return Vector.add(a, abNorm);
     }
 }
 
@@ -182,8 +193,8 @@ class Game {
     constructor() {
         this.initialTime = Date.now();
 
-        this.boid = new Boid(20, c.width * 3 / 4);
-        // this.boid = new Boid(Math.random() * c.width, Math.random() * c.height);
+        // this.boid = new Boid(20, c.width * 3 / 4);
+        this.boid = new Boid(Math.random() * c.width, Math.random() * c.height);
         // const pathPoints = [
         // new Vector(0, c.height / 4),
         // new Vector(c.width / 12, c.height / 12),
@@ -192,6 +203,13 @@ class Game {
         // new Vector(c.width * 4 / 8, c.height - c.height / 6),
         // new Vector(c.width, c.height - c.height / 3)
         // ];
+
+        // const a = new Vector(10, 2);
+        // const b = new Vector(4, -3);
+        // console.log(a.getMagnitude());
+        // console.log(b.getMagnitude());
+        // console.log(a.angleBetween(b, true));
+        // console.log(a.dot(b));
 
         const pathPoints = [
             new Vector(0, c.height / 2),
@@ -214,7 +232,7 @@ class Game {
     update(dt) {
         // this.boid.seek(target);
         // this.boid.arrive(target);
-        this.boid.follow(this.path.points, this.path.radius);
+        this.boid.follow(this.path, this.path.points, this.path.radius);
         this.boid.update(dt);
     }
 
@@ -237,8 +255,8 @@ class Entity {
         this.position = new Vector(x, y);
         this.maxSpeed = 1000; // using dt in calculations...
         this.maxForce = 10000; // using dt in calculations...
-        this.maxSpeed = 10;
-        this.maxForce = 1;
+        this.maxSpeed = 2;
+        this.maxForce = 0.2;
         this.velocity = new Vector(this.maxSpeed, 0);
         this.acceleration = new Vector(0, 0);
         this.forces = {};
@@ -296,54 +314,124 @@ class Boid extends Entity {
         // this.addForce('steer', steering);
     }
 
-    follow(path, radius) {
-        // let guess = this.velocity.copy();
-        // console.log(guess);
-        let guess = this.velocity.normalize().multiply(this.maxSpeed / 2);
-        // console.log(guess);
-        const predictedPos = Vector.add(this.position, guess);
-        let target, distance;
-        let winner = Infinity;
-        this.normal = null;
-
+    isValid(a, b, point) {
+        // const EPSILON = 0.001;
+        // const m = (b.y - a.y) / (b.x - a.x);
+        // const line = a.y - m * a.x;
         // debugger
+        // if (Math.abs(point.y - (m * point.x + line) < EPSILON)) return true;
+        // return false;
+        const dy = b.y - a.y;
+        const dx = b.x - a.x;
 
-        for (let i = 0; i < path.length - 1; i++) {
-
-            const a = path[i];
-            const b = path[i + 1];
-
-            const ap = Vector.sub(predictedPos, a);
-            const ab = Vector.sub(b, a);
-            const abN = ab.normalize();
-            abN.multiply(ap.dot(abN));
-            let normalPoint = Vector.add(a, abN);
-            // let normalPoint = ap.project(ab);
-            // debugger
-            if (normalPoint.x < a.x || normalPoint.x > b.x ||
-                normalPoint.y < a.y || normalPoint.y > b.y) {
-                // console.log(normalPoint);
-                // debugger
-                normalPoint = b.copy();
-                // debugger
-            }
-
-            distance = predictedPos.dist(normalPoint);
-            if (distance < winner) {
-                winner = distance;
-                this.normal = normalPoint;
-                const dir = Vector.sub(b, a).normalize().multiply(15);
-                // debugger
-                target = Vector.add(normalPoint, dir);
-            }
-            // const dir = Vector.sub(b, a).normalize().multiply(15);
-            // debugger
-            // target = Vector.add(normalPoint, dir);
+        if (dy === 0) {
+            if (point.x < a.x || point.x > b.x) return true;
+        } else if (dx === 0) {
+            if (point.y < a.y || point.y > b.y) return false;
         }
-        if (distance > radius + 10) this.seek(target);
-        // console.log(distance, radius);
-
+        return true;
     }
+
+    follow(path, pointsArr, radius) {
+        const projection = this.velocity.normalize().multiply(this.perceptionRadius);
+        this.predictedPos = Vector.add(this.position, projection);
+
+        // let target = null;
+        let winner = Infinity;
+
+        for (let i = 0; i < path.points.length - 1; i++) {
+            let a = path.points[i];
+            let b = path.points[i + 1];
+
+
+            let normalPoint = Vector.getNormalPoint(this.predictedPos, a, b);
+
+
+
+            if (normalPoint.x < Math.min(a.x, b.x) || normalPoint.x > Math.max(a.x, b.x)) normalPoint = b.copy();
+            else if (normalPoint.y < Math.min(a.y, b.y) || normalPoint.y > Math.max(a.y, b.y)) normalPoint = b.copy();
+
+            const dist = this.predictedPos.dist(normalPoint);
+            if (dist < winner) {
+                winner = dist;
+                this.normal = normalPoint.copy();
+                const dir = Vector.sub(b, a).normalize();
+                dir.multiply(this.perceptionRadius);
+                this.target = Vector.add(this.normal, dir);
+            }
+
+        }
+        this.seek(this.target);
+        // straight path implementation
+        // const a = Vector.sub(this.predictedPos, path.getStart());
+        // const b = Vector.sub(path.getEnd(), path.getStart());
+
+        // const theta = a.angleBetween(b);
+        // const bNorm = b.normalize();
+        // // bNorm.multiply(a.getMagnitude() * Math.cos(theta));
+        // bNorm.multiply(a.dot(bNorm));
+        // this.normal = Vector.add(path.getStart(), bNorm);
+
+        // const dir = Vector.sub(b, a).normalize();
+        // dir.multiply(this.perceptionRadius * 2);
+        // const target = Vector.add(this.normal, dir);
+
+
+        // const dist = this.predictedPos.dist(this.normal);
+
+        // if (dist > path.radius) {
+        //     this.seek(target);
+        // }
+    }
+
+    // follow(path, radius) {
+    //     // let guess = this.velocity.copy();
+    //     // console.log(guess);
+    //     let guess = this.velocity.normalize().multiply(this.maxSpeed / 2);
+    //     // console.log(guess);
+    //     const predictedPos = Vector.add(this.position, guess);
+    //     let target, distance;
+    //     let winner = Infinity;
+    //     this.normal = null;
+
+    //     // debugger
+
+    //     for (let i = 0; i < path.length - 1; i++) {
+
+    //         const a = path[i];
+    //         const b = path[i + 1];
+
+    //         const ap = Vector.sub(predictedPos, a);
+    //         const ab = Vector.sub(b, a);
+    //         const abN = ab.normalize();
+    //         abN.multiply(ap.dot(abN));
+    //         let normalPoint = Vector.add(a, abN);
+    //         // let normalPoint = ap.project(ab);
+    //         // debugger
+    //         if (normalPoint.x < a.x || normalPoint.x > b.x ||
+    //             normalPoint.y < a.y || normalPoint.y > b.y) {
+    //             // console.log(normalPoint);
+    //             // debugger
+    //             normalPoint = b.copy();
+    //             // debugger
+    //         }
+
+    //         distance = predictedPos.dist(normalPoint);
+    //         if (distance < winner) {
+    //             winner = distance;
+    //             this.normal = normalPoint;
+    //             const dir = Vector.sub(b, a).normalize().multiply(15);
+    //             // debugger
+    //             target = Vector.add(normalPoint, dir);
+    //         }
+    //         // const dir = Vector.sub(b, a).normalize().multiply(15);
+    //         // debugger
+    //         // target = Vector.add(normalPoint, dir);
+    //     }
+    //     if (distance > radius + 10) this.seek(target);
+    //     // console.log(distance, radius);
+
+    // }
 
     checkBounds() {
         if (this.position.x - this.radius > c.width) this.position.x = -this.radius;
@@ -370,23 +458,40 @@ class Boid extends Entity {
     }
 
     render() {
+        // predicted position
+        cc.fillStyle = "#f00";
+        cc.beginPath();
+        cc.arc(this.predictedPos.x, this.predictedPos.y, this.radius / 3, 0, 2 * Math.PI);
+        cc.closePath();
+        cc.fill();
+
+        // boid
         cc.fillStyle = "#0f0";
         cc.beginPath();
         cc.arc(this.position.x, this.position.y, this.radius, 0, 2 * Math.PI);
         cc.closePath();
         cc.fill();
+
+        // normal point on path relative to predicted pos
         cc.fillStyle = "#0ff";
         cc.beginPath();
-        cc.arc(this.normal.x, this.normal.y, this.radius / 2, 0, 2 * Math.PI);
+        cc.arc(this.normal.x, this.normal.y, this.radius / 3, 0, 2 * Math.PI);
         cc.closePath();
         cc.fill();
+
+        // target point on path boid aims to seek
+        // cc.fillStyle = "#fff";
+        // cc.beginPath();
+        // cc.arc(this.target.x, this.target.y, this.radius / 3, 0, 2 * Math.PI);
+        // cc.closePath();
+        // cc.fill();
     }
 }
 
 class Path {
     constructor(radius, points) {
         this.points = points || [];
-        this.radius = radius;
+        this.radius = 20;
     }
 
     addPoint(point) {
@@ -412,6 +517,22 @@ class Path {
             cc.lineTo(next.x, next.y);
             cc.closePath();
             cc.stroke();
+
+            // path radius
+            // cc.strokeStyle = "#fff";
+            // cc.strokeWidth = 1;
+            // cc.beginPath();
+            // cc.moveTo(current.x, current.y - this.radius);
+            // cc.lineTo(next.x, next.y - this.radius);
+            // cc.closePath();
+            // cc.stroke();
+            // cc.strokeStyle = "#fff";
+            // cc.strokeWidth = 1;
+            // cc.beginPath();
+            // cc.moveTo(current.x, current.y + this.radius);
+            // cc.lineTo(next.x, next.y + this.radius);
+            // cc.closePath();
+            // cc.stroke();
         }
     }
 }
