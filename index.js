@@ -8,7 +8,7 @@ var KEYS = {
     DOWN: "DOWN"
 };
 
-var target;
+// var target;
 
 const index = (i, j, rows) => i + (j * rows);
 
@@ -44,10 +44,10 @@ document.addEventListener("DOMContentLoaded", () => {
         requestAnimationFrame(startDemo);
     }
 
-    c.addEventListener('mousemove', e => {
-        const rect = c.getBoundingClientRect();
-        target = new Vector(e.clientX - rect.left, e.clientY - rect.top);
-    });
+    // c.addEventListener('mousemove', e => {
+    //     const rect = c.getBoundingClientRect();
+    //     target = new Vector(e.clientX - rect.left, e.clientY - rect.top);
+    // });
 
     startDemo();
 });
@@ -143,7 +143,7 @@ class Vector {
     }
 
     angleBetween(vector, degrees) {
-        const step = this.dot(vector) / this.getMagnitude() * vector.getMagnitude();
+        const step = this.dot(vector) / (this.getMagnitude() * vector.getMagnitude());
         const theta = Math.acos(step);
         if (degrees) return theta * 180 / Math.PI;
         else return theta;
@@ -156,7 +156,7 @@ class Vector {
 
     project(vector) {
         const normal = vector.normalize();
-        return normal.multiply(this.dot(vector));
+        return normal.multiply(this.dot(normal));
     }
 
     limit(scalar) {
@@ -171,6 +171,10 @@ class Vector {
         const dy = vector.y - this.y;
         return Math.sqrt(dx * dx + dy * dy);
     }
+
+    copy() {
+        return new Vector(this.x, this.y);
+    }
 }
 
 
@@ -178,26 +182,46 @@ class Game {
     constructor() {
         this.initialTime = Date.now();
 
-        this.boid = new Boid(5, 5);
+        this.boid = new Boid(20, c.width * 3 / 4);
+        // this.boid = new Boid(Math.random() * c.width, Math.random() * c.height);
+        // const pathPoints = [
+        // new Vector(0, c.height / 4),
+        // new Vector(c.width / 12, c.height / 12),
+        // new Vector(c.width / 12, c.height / 6),
+        // new Vector(c.width * 3 / 12, c.height / 3),
+        // new Vector(c.width * 4 / 8, c.height - c.height / 6),
+        // new Vector(c.width, c.height - c.height / 3)
+        // ];
+
         const pathPoints = [
             new Vector(0, c.height / 2),
-            new Vector(c.width / 5, c.height / 2),
-            new Vector(c.width * 2 / 5, c.height / 4),
-            new Vector(c.width * 3 / 5, c.height - c.height / 4),
-            new Vector(c.width * 4 / 5, c.height / 6),
-            new Vector(c.width, c.height / 2),
+            new Vector(c.width / 6, c.height / 2),
+            new Vector(c.width / 6, c.height / 6 * 2),
+            new Vector(c.width / 6 * 2, c.height / 6 * 2),
+            new Vector(c.width / 6 * 2, c.height / 2),
+            new Vector(c.width / 2, c.height / 2),
+            new Vector(c.width / 2, c.height / 6),
+            new Vector(c.width / 6 * 4, c.height / 6),
+            new Vector(c.width / 6 * 4, c.height / 6 * 4),
+            new Vector(c.width / 6 * 5, c.height / 6 * 4),
+            new Vector(c.width / 6 * 5, c.height / 2),
+            new Vector(c.width, c.height / 2)
         ];
         this.path = new Path(2, pathPoints);
+        // this.boid.follow(this.path.points, this.path.radius);
     }
 
     update(dt) {
-        this.boid.seek(target);
-        this.boid.arrive(target);
+        // this.boid.seek(target);
+        // this.boid.arrive(target);
+        this.boid.follow(this.path.points, this.path.radius);
         this.boid.update(dt);
     }
 
     render() {
-        cc.clearRect(0, 0, c.width, c.height);
+        // cc.clearRect(0, 0, c.width, c.height);
+        cc.fillStyle = "#000";
+        cc.fillRect(0, 0, c.width, c.height);
 
         // if (target) {
         //     cc.fillStyle = "#0ff";
@@ -211,12 +235,12 @@ class Game {
 class Entity {
     constructor(x, y) {
         this.position = new Vector(x, y);
-        this.velocity = new Vector(5, 0);
-        this.acceleration = new Vector(0, 0);
         this.maxSpeed = 1000; // using dt in calculations...
         this.maxForce = 10000; // using dt in calculations...
         this.maxSpeed = 10;
-        this.maxForce = 0.5;
+        this.maxForce = 1;
+        this.velocity = new Vector(this.maxSpeed, 0);
+        this.acceleration = new Vector(0, 0);
         this.forces = {};
     }
 
@@ -245,11 +269,14 @@ class Boid extends Entity {
     // }
 
     seek(target) {
+        // debugger
         if (!target) return;
-        const desired = Vector.sub(target, this.position);
-        desired.setMagnitude(this.maxSpeed);
+        let desired = Vector.sub(target, this.position);
+        if (desired.getMagnitude() < 0.05) return;
+        // desired.setMagnitude(this.maxSpeed);
+        desired = desired.normalize().multiply(this.maxSpeed);
         const steering = Vector.sub(desired, this.velocity);
-        steering.setMagnitude(this.maxForce);
+        steering.limit(this.maxForce);
         this.addForce(steering);
     }
 
@@ -269,30 +296,88 @@ class Boid extends Entity {
         // this.addForce('steer', steering);
     }
 
-    checkBounds() {
-        if (this.position.x > c.width) this.position.x = 0;
-        if (this.position.x < 0) this.position.x = c.width;
+    follow(path, radius) {
+        // let guess = this.velocity.copy();
+        // console.log(guess);
+        let guess = this.velocity.normalize().multiply(this.maxSpeed / 2);
+        // console.log(guess);
+        const predictedPos = Vector.add(this.position, guess);
+        let target, distance;
+        let winner = Infinity;
+        this.normal = null;
 
-        if (this.position.y > c.height) this.position.y = 0;
-        if (this.position.y < 0) this.position.y = c.height;
+        // debugger
+
+        for (let i = 0; i < path.length - 1; i++) {
+
+            const a = path[i];
+            const b = path[i + 1];
+
+            const ap = Vector.sub(predictedPos, a);
+            const ab = Vector.sub(b, a);
+            const abN = ab.normalize();
+            abN.multiply(ap.dot(abN));
+            let normalPoint = Vector.add(a, abN);
+            // let normalPoint = ap.project(ab);
+            // debugger
+            if (normalPoint.x < a.x || normalPoint.x > b.x ||
+                normalPoint.y < a.y || normalPoint.y > b.y) {
+                // console.log(normalPoint);
+                // debugger
+                normalPoint = b.copy();
+                // debugger
+            }
+
+            distance = predictedPos.dist(normalPoint);
+            if (distance < winner) {
+                winner = distance;
+                this.normal = normalPoint;
+                const dir = Vector.sub(b, a).normalize().multiply(15);
+                // debugger
+                target = Vector.add(normalPoint, dir);
+            }
+            // const dir = Vector.sub(b, a).normalize().multiply(15);
+            // debugger
+            // target = Vector.add(normalPoint, dir);
+        }
+        if (distance > radius + 10) this.seek(target);
+        // console.log(distance, radius);
+
+    }
+
+    checkBounds() {
+        if (this.position.x - this.radius > c.width) this.position.x = -this.radius;
+        if (this.position.x + this.radius < 0) this.position.x = c.width + this.radius;
+        // if (this.position.x < 0) this.position.x = c.width;
+
+        // if (this.position.y > c.height) this.position.y = 0;
+        // if (this.position.y < 0) this.position.y = c.height;
     }
 
     update(dt) {
         this.velocity.add(this.acceleration);
+        // debugger
         // console.log(this.velocity);
         // console.log(this.acceleration);
+        this.velocity.limit(this.maxSpeed);
         this.position.add(this.velocity);
 
         // this.velocity.add(this.acceleration.multiply(dt));
         // this.position.add(this.velocity.multiply(dt));
-        // this.checkBounds();
         this.acceleration.multiply(0);
+
+        this.checkBounds();
     }
 
     render() {
         cc.fillStyle = "#0f0";
         cc.beginPath();
         cc.arc(this.position.x, this.position.y, this.radius, 0, 2 * Math.PI);
+        cc.closePath();
+        cc.fill();
+        cc.fillStyle = "#0ff";
+        cc.beginPath();
+        cc.arc(this.normal.x, this.normal.y, this.radius / 2, 0, 2 * Math.PI);
         cc.closePath();
         cc.fill();
     }
