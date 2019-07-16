@@ -255,22 +255,15 @@ class Entity {
         this.position = new Vector(x, y);
         this.maxSpeed = 1000; // using dt in calculations...
         this.maxForce = 10000; // using dt in calculations...
-        this.maxSpeed = 2;
-        this.maxForce = 0.2;
+        this.maxSpeed = 5;
+        this.maxForce = 0.5;
         this.velocity = new Vector(this.maxSpeed, 0);
         this.acceleration = new Vector(0, 0);
         this.forces = {};
     }
 
-    addForce(force) {
-        // this.forces[name] = force;
+    applyForce(force) {
         this.acceleration.add(force);
-    }
-
-    applyForce() {
-        const netForce = new Vector();
-        Object.values(this.forces).forEach(force => netForce.add(force));
-        this.acceleration = netForce;
     }
 }
 
@@ -287,15 +280,13 @@ class Boid extends Entity {
     // }
 
     seek(target) {
-        // debugger
         if (!target) return;
         let desired = Vector.sub(target, this.position);
         if (desired.getMagnitude() < 0.05) return;
-        // desired.setMagnitude(this.maxSpeed);
         desired = desired.normalize().multiply(this.maxSpeed);
         const steering = Vector.sub(desired, this.velocity);
         steering.limit(this.maxForce);
-        this.addForce(steering);
+        this.applyForce(steering);
     }
 
     arrive(target) {
@@ -306,33 +297,11 @@ class Boid extends Entity {
         if (d < this.perceptionRadius) {
             desired.setMagnitude(map(d, 0, this.perceptionRadius, 0, this.maxSpeed));
         } else desired.setMagnitude(this.maxSpeed);
-        const steer = Vector.sub(desired, this.velocity).setMagnitude(this.maxForce);
-        this.addForce(steer);
-        // desired.setMagnitude(this.maxSpeed);
-        // const steering = Vector.sub(desired, this.velocity);
-        // steering.setMagnitude(this.maxForce);
-        // this.addForce('steer', steering);
+        const steering = Vector.sub(desired, this.velocity).setMagnitude(this.maxForce);
+        this.applyForce(steering);
     }
 
-    isValid(a, b, point) {
-        // const EPSILON = 0.001;
-        // const m = (b.y - a.y) / (b.x - a.x);
-        // const line = a.y - m * a.x;
-        // debugger
-        // if (Math.abs(point.y - (m * point.x + line) < EPSILON)) return true;
-        // return false;
-        const dy = b.y - a.y;
-        const dx = b.x - a.x;
-
-        if (dy === 0) {
-            if (point.x < a.x || point.x > b.x) return true;
-        } else if (dx === 0) {
-            if (point.y < a.y || point.y > b.y) return false;
-        }
-        return true;
-    }
-
-    follow(path, pointsArr, radius) {
+    follow(path) {
         const projection = this.velocity.normalize().multiply(this.perceptionRadius);
         this.predictedPos = Vector.add(this.position, projection);
 
@@ -362,76 +331,7 @@ class Boid extends Entity {
 
         }
         this.seek(this.target);
-        // straight path implementation
-        // const a = Vector.sub(this.predictedPos, path.getStart());
-        // const b = Vector.sub(path.getEnd(), path.getStart());
-
-        // const theta = a.angleBetween(b);
-        // const bNorm = b.normalize();
-        // // bNorm.multiply(a.getMagnitude() * Math.cos(theta));
-        // bNorm.multiply(a.dot(bNorm));
-        // this.normal = Vector.add(path.getStart(), bNorm);
-
-        // const dir = Vector.sub(b, a).normalize();
-        // dir.multiply(this.perceptionRadius * 2);
-        // const target = Vector.add(this.normal, dir);
-
-
-        // const dist = this.predictedPos.dist(this.normal);
-
-        // if (dist > path.radius) {
-        //     this.seek(target);
-        // }
     }
-
-    // follow(path, radius) {
-    //     // let guess = this.velocity.copy();
-    //     // console.log(guess);
-    //     let guess = this.velocity.normalize().multiply(this.maxSpeed / 2);
-    //     // console.log(guess);
-    //     const predictedPos = Vector.add(this.position, guess);
-    //     let target, distance;
-    //     let winner = Infinity;
-    //     this.normal = null;
-
-    //     // debugger
-
-    //     for (let i = 0; i < path.length - 1; i++) {
-
-    //         const a = path[i];
-    //         const b = path[i + 1];
-
-    //         const ap = Vector.sub(predictedPos, a);
-    //         const ab = Vector.sub(b, a);
-    //         const abN = ab.normalize();
-    //         abN.multiply(ap.dot(abN));
-    //         let normalPoint = Vector.add(a, abN);
-    //         // let normalPoint = ap.project(ab);
-    //         // debugger
-    //         if (normalPoint.x < a.x || normalPoint.x > b.x ||
-    //             normalPoint.y < a.y || normalPoint.y > b.y) {
-    //             // console.log(normalPoint);
-    //             // debugger
-    //             normalPoint = b.copy();
-    //             // debugger
-    //         }
-
-    //         distance = predictedPos.dist(normalPoint);
-    //         if (distance < winner) {
-    //             winner = distance;
-    //             this.normal = normalPoint;
-    //             const dir = Vector.sub(b, a).normalize().multiply(15);
-    //             // debugger
-    //             target = Vector.add(normalPoint, dir);
-    //         }
-    //         // const dir = Vector.sub(b, a).normalize().multiply(15);
-    //         // debugger
-    //         // target = Vector.add(normalPoint, dir);
-    //     }
-    //     if (distance > radius + 10) this.seek(target);
-    //     // console.log(distance, radius);
-
-    // }
 
     checkBounds() {
         if (this.position.x - this.radius > c.width) this.position.x = -this.radius;
@@ -480,11 +380,17 @@ class Boid extends Entity {
         cc.fill();
 
         // target point on path boid aims to seek
-        // cc.fillStyle = "#fff";
-        // cc.beginPath();
-        // cc.arc(this.target.x, this.target.y, this.radius / 3, 0, 2 * Math.PI);
-        // cc.closePath();
-        // cc.fill();
+        cc.fillStyle = "#fff";
+        cc.beginPath();
+        cc.arc(this.target.x, this.target.y, this.radius / 3, 0, 2 * Math.PI);
+        cc.closePath();
+        cc.fill();
+    }
+}
+
+class Enemy {
+    constructor(x, y) {
+        super(x, y);
     }
 }
 
