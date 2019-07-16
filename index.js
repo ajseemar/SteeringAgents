@@ -27,6 +27,81 @@ const map = (num, x1, y1, x2, y2) => {
     return (num - x1) * (y2 - x2) / (y1 - x1) + x2;
 }
 
+class ResourceManager {
+    constructor() {
+        this.resourceCache = {};
+        this.loading = [];
+        this.callbacks = [];
+    }
+
+    load(resource) {
+        if (resource instanceof Array) {
+            resource.forEach(res => this._load(res));
+        } else this._load(resource);
+    }
+
+    _load(url) {
+        if (this.resourceCache[url]) return this.resourceCache[url];
+        else {
+            this.loading.push(url);
+
+            const img = new Image();
+            img.onload = () => {
+                this.resourceCache[url] = img;
+                if (this.isReady()) this.callbacks.forEach(cb => cb());
+            }
+            img.src = url;
+            this.resourceCache[url] = img;
+        }
+    }
+
+    get(url) {
+        return this.resourceCache[url];
+    }
+
+    isReady() {
+        let ready = true;
+        for (let k in this.resourceCache) {
+            if (this.resourceCache.hasOwnProperty(k) && !(this.resourceCache[k]))
+                ready = false;
+        };
+        return ready;
+    }
+
+    onReady(func) {
+        this.callbacks.push(func);
+    }
+}
+
+const assets = [
+    'assets/baseball_bat.png',
+    'assets/blue_foot.png',
+    'assets/blue_shoulder.png',
+    'assets/bottom_wall.png',
+    'assets/bullet.png',
+    'assets/end_flag.png',
+    'assets/green_foot.png',
+    'assets/green_shoulder.png',
+    'assets/helmet.png',
+    'assets/left_wall.png',
+    'assets/limb.png',
+    'assets/machine_gun.png',
+    'assets/metal_bat.png',
+    'assets/pistol_reload.png',
+    'assets/pistol.png',
+    'assets/player_gun.png',
+    'assets/player_hold.png',
+    'assets/player_machine_gun_reload.png',
+    'assets/player_machine_gun.png',
+    'assets/player_standing.png',
+    'assets/right_wall.png',
+    'assets/start_flag.png',
+    'assets/zombie.png',
+    'assets/zombie_hit.png',
+];
+
+const rm = new ResourceManager();
+
 document.addEventListener("DOMContentLoaded", () => {
     c = document.getElementById('canvas');
     cc = c.getContext('2d');
@@ -49,7 +124,9 @@ document.addEventListener("DOMContentLoaded", () => {
     //     target = new Vector(e.clientX - rect.left, e.clientY - rect.top);
     // });
 
-    startDemo();
+    // startDemo();
+    rm.load(assets);
+    rm.onReady(startDemo);
 });
 
 class Vector {
@@ -253,10 +330,10 @@ class Game {
 class Entity {
     constructor(x, y) {
         this.position = new Vector(x, y);
-        this.maxSpeed = 1000; // using dt in calculations...
-        this.maxForce = 10000; // using dt in calculations...
-        this.maxSpeed = 5;
-        this.maxForce = 0.5;
+        // this.maxSpeed = 1000; // using dt in calculations...
+        // this.maxForce = 10000; // using dt in calculations...
+        this.maxSpeed = 0.25;
+        this.maxForce = 0.01;
         this.velocity = new Vector(this.maxSpeed, 0);
         this.acceleration = new Vector(0, 0);
         this.forces = {};
@@ -366,7 +443,7 @@ class Boid extends Entity {
         cc.fill();
 
         // boid
-        cc.fillStyle = "#0f0";
+        cc.fillStyle = "#f0f";
         cc.beginPath();
         cc.arc(this.position.x, this.position.y, this.radius, 0, 2 * Math.PI);
         cc.closePath();
@@ -388,9 +465,14 @@ class Boid extends Entity {
     }
 }
 
-class Enemy {
+class Enemy extends Boid {
     constructor(x, y) {
         super(x, y);
+        rm.onReady(this.init.bind(this));
+    }
+
+    init() {
+        this.sprite = rm.get("assets/zombie.png");
     }
 }
 
@@ -414,7 +496,7 @@ class Path {
 
     render() {
         for (let i = 0; i < this.points.length - 1; i++) {
-            cc.strokeStyle = "#f00";
+            cc.strokeStyle = "#0f0";
             cc.strokeWidth = 2;
             cc.beginPath();
             let current = this.points[i];
