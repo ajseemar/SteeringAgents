@@ -360,7 +360,7 @@ class Game {
         this.width = cellCount * this.cellSize;
         this.height = cellCount * this.cellSize;
 
-        // this.boid = new Boid(Math.random() * c.width, Math.random() * c.height);
+        this.boid = new Boid(Math.random() * c.width, Math.random() * c.height);
         this.enemy = new Enemy(Math.random() * c.width, Math.random() * c.height, this.cellSize);
 
         // this.camera = new Camera(vpWidth, vpHeight, this.width, this.height, cellCount);
@@ -377,8 +377,8 @@ class Game {
     update(dt) {
         // this.boid.seek(target);
         // this.boid.arrive(target);
-        // this.boid.follow(this.path, this.path.points, this.path.radius);
-        // this.boid.update(dt);
+        this.boid.follow(this.path, this.path.points, this.path.radius);
+        this.boid.update(dt);
         this.enemy.follow(this.path, this.path.points, this.path.radius);
         this.enemy.update(dt);
         this.player.update(dt);
@@ -393,9 +393,9 @@ class Game {
         //     cc.fillStyle = "#0ff";
         //     cc.fillRect(target.x - 30, target.y - 30, 60, 60);
         // }
-        // this.path.render();
+        this.path.render();
         this.enemy.render();
-        // this.boid.render();
+        this.boid.render();
         this.player.render();
     }
 }
@@ -570,6 +570,63 @@ class Enemy extends Boid {
     }
 }
 
+class Bullet {
+    constructor(sprite, pos) {
+        // this.id = uuid();
+
+        this.sprite = sprite;
+
+        this.position = {
+            x: pos.x,
+            y: pos.y
+        };
+
+        this.velocity = {
+            x: 0,
+            y: 0
+        };
+
+        this.radius = 4;
+
+        this.speed = 1000;
+
+        this.collided = false;
+
+        this.prevCollisionLength = 0;
+    }
+
+    updateVelocity(x, y) {
+        this.velocity.x = x * this.speed;
+        this.velocity.y = y * this.speed;
+    }
+
+    checkCollision() {
+
+    }
+
+    update(dt) {
+        this.position.x += this.velocity.x * dt;
+        this.position.y += this.velocity.y * dt;
+    }
+
+    render(ctx, offset) {
+        cc.drawImage(this.sprite, this.position.x, this.position.y);
+    }
+
+    static update(bullets, collisionDetector, dt) {
+        Object.keys(bullets).forEach(id => {
+            bullets[id].update(dt);
+            // const collided = collisionDetector.detectCollision(bullets[id]);
+            // if (collided.length > 0) bullets[id].collided = true;
+            // if (bullets[id].collided) delete bullets[id];
+        });
+    }
+
+    static render(bullets, ...renderArgs) {
+        Object.values(bullets).forEach(bullet => bullet.render(...renderArgs));
+    }
+}
+
 class Player {
     constructor(size, inputHandler, cellSize, cellCount) {
         this.size = size / 3; //c.width / (size * 2);
@@ -582,6 +639,7 @@ class Player {
         // console.log(this.width, this.height);
         this.angle = 0;
         window.addEventListener('mousemove', this.handleRotation.bind(this));
+        c.addEventListener('click', this.shoot.bind(this));
         rm.onReady(this.init.bind(this));
         this.position = {
             x: this.size,
@@ -600,6 +658,42 @@ class Player {
 
         this.cellSize = cellSize;
         this.cellCount = cellCount;
+        this.bullets = [];
+    }
+
+    getMousePosition(e) {
+        const rect = c.getBoundingClientRect();
+        const mousePos = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+
+        const dy = mousePos.y - c.height / 2;
+        const dx = mousePos.x - c.width / 2;
+
+        return { x: dx, y: dy };
+    }
+
+    shoot(e) {
+        e.preventDefault();
+        const mouse = this.getMousePosition(e);
+
+        const bullet = new Bullet(this.bulletSprite, this.position);
+        let x, y;
+        if (navigator.getGamepads()[0]) {
+            x = this.delta.x;
+            y = this.delta.y;
+        } else {
+            x = mouse.x;
+            y = mouse.y;
+        }
+        const magnitude = -Math.sqrt(x * x + y * y);
+
+        x /= magnitude;
+        y /= magnitude;
+
+        bullet.updateVelocity(x, y);
+        this.bullets.push(bullet);
     }
 
     handleRotation(e) {
@@ -623,6 +717,7 @@ class Player {
         window.sprite = this.sprite = rm.get('assets/player_standing.png');
         this.width = this.sprite.width;
         this.height = this.sprite.height;
+        this.bulletSprite = rm.get('assets/bullet.png');
     }
 
     updatePivot() {
@@ -652,6 +747,8 @@ class Player {
         this.handleInput();
         this.position.x += this.velocity.x * dt;
         this.position.y += this.velocity.y * dt;
+
+        Bullet.update(this.bullets, true, dt);
     }
 
     render(offsetX, offsetY) {
@@ -660,6 +757,8 @@ class Player {
         cc.rotate(this.angle);
         cc.drawImage(this.sprite, -this.width / 2, -this.height / 2);
         cc.restore();
+
+        Bullet.render(this.bullets, cc);
 
     }
 }
