@@ -27,108 +27,6 @@ const map = (num, x1, y1, x2, y2) => {
     return (num - x1) * (y2 - x2) / (y1 - x1) + x2;
 }
 
-class ResourceManager {
-    constructor() {
-        this.resourceCache = {};
-        this.loading = [];
-        this.callbacks = [];
-    }
-
-    load(resource) {
-        if (resource instanceof Array) {
-            resource.forEach(res => this._load(res));
-        } else this._load(resource);
-    }
-
-    _load(url) {
-        if (this.resourceCache[url]) return this.resourceCache[url];
-        else {
-            this.loading.push(url);
-
-            const img = new Image();
-            img.onload = () => {
-                this.resourceCache[url] = img;
-                if (this.isReady()) this.callbacks.forEach(cb => cb());
-            }
-            img.src = url;
-            this.resourceCache[url] = img;
-        }
-    }
-
-    get(url) {
-        return this.resourceCache[url];
-    }
-
-    isReady() {
-        let ready = true;
-        for (let k in this.resourceCache) {
-            if (this.resourceCache.hasOwnProperty(k) && !(this.resourceCache[k]))
-                ready = false;
-        };
-        return ready;
-    }
-
-    onReady(func) {
-        this.callbacks.push(func);
-    }
-}
-
-const assets = [
-    'assets/baseball_bat.png',
-    'assets/blue_foot.png',
-    'assets/blue_shoulder.png',
-    'assets/bottom_wall.png',
-    'assets/bullet.png',
-    'assets/end_flag.png',
-    'assets/green_foot.png',
-    'assets/green_shoulder.png',
-    'assets/helmet.png',
-    'assets/left_wall.png',
-    'assets/limb.png',
-    'assets/machine_gun.png',
-    'assets/metal_bat.png',
-    'assets/pistol_reload.png',
-    'assets/pistol.png',
-    'assets/player_gun.png',
-    'assets/player_hold.png',
-    'assets/player_machine_gun_reload.png',
-    'assets/player_machine_gun.png',
-    'assets/player_standing.png',
-    'assets/right_wall.png',
-    'assets/start_flag.png',
-    'assets/zombie.png',
-    'assets/zombie_hit.png',
-];
-
-const rm = new ResourceManager();
-
-document.addEventListener("DOMContentLoaded", () => {
-    c = document.getElementById('canvas');
-    cc = c.getContext('2d');
-
-    const AgentsDemo = new Game(c.width, c.height, 50);
-
-    const startDemo = () => {
-        let time = Date.now();
-        let dt = (AgentsDemo.initialTime - time) / 1000.0;
-
-        AgentsDemo.update(dt);
-        AgentsDemo.render();
-
-        AgentsDemo.initialTime = time;
-        requestAnimationFrame(startDemo);
-    }
-
-    // c.addEventListener('mousemove', e => {
-    //     const rect = c.getBoundingClientRect();
-    //     target = new Vector(e.clientX - rect.left, e.clientY - rect.top);
-    // });
-
-    // startDemo();
-    rm.load(assets);
-    rm.onReady(startDemo);
-});
-
 class Vector {
     constructor(x, y) {
         this.x = x || 0;
@@ -265,13 +163,166 @@ class Vector {
     }
 }
 
+class ResourceManager {
+    constructor() {
+        this.resourceCache = {};
+        this.loading = [];
+        this.callbacks = [];
+    }
+
+    load(resource) {
+        if (resource instanceof Array) {
+            resource.forEach(res => this._load(res));
+        } else this._load(resource);
+    }
+
+    _load(url) {
+        if (this.resourceCache[url]) return this.resourceCache[url];
+        else {
+            this.loading.push(url);
+
+            const img = new Image();
+            img.onload = () => {
+                this.resourceCache[url] = img;
+                if (this.isReady()) this.callbacks.forEach(cb => cb());
+            }
+            img.src = url;
+            this.resourceCache[url] = img;
+        }
+    }
+
+    get(url) {
+        return this.resourceCache[url];
+    }
+
+    isReady() {
+        let ready = true;
+        for (let k in this.resourceCache) {
+            if (this.resourceCache.hasOwnProperty(k) && !(this.resourceCache[k]))
+                ready = false;
+        };
+        return ready;
+    }
+
+    onReady(func) {
+        this.callbacks.push(func);
+    }
+}
+
+class InputManager {
+    constructor() {
+        this.pressedKeys = {};
+
+        document.addEventListener('keydown', e => this.setKey(e, true));
+        document.addEventListener('keyup', e => this.setKey(e, false));
+    }
+
+    setKey(e, status) {
+        e.preventDefault();
+        let key;
+        switch (e.keyCode) {
+            case 32:
+                key = KEYS.SPACE;
+                break;
+            case 65:
+                key = KEYS.LEFT;
+                break;
+            case 87:
+                key = KEYS.UP;
+                break;
+            case 68:
+                key = KEYS.RIGHT;
+                break;
+            case 83:
+                key = KEYS.DOWN;
+                break;
+            case 37:
+                key = KEYS.LEFT;
+                break;
+            case 38:
+                key = KEYS.UP;
+                break;
+            case 39:
+                key = KEYS.RIGHT;
+                break;
+            case 40:
+                key = KEYS.DOWN;
+                break;
+            default:
+                // Convert ASCII codes to letters
+                key = String.fromCharCode(e.keyCode);
+
+        }
+
+        this.pressedKeys[key] = status;
+    }
+
+    isPressed(key) {
+        return this.pressedKeys[key];
+    }
+}
+
+const assets = [
+    'assets/baseball_bat.png',
+    'assets/blue_foot.png',
+    'assets/blue_shoulder.png',
+    'assets/bottom_wall.png',
+    'assets/bullet.png',
+    'assets/end_flag.png',
+    'assets/green_foot.png',
+    'assets/green_shoulder.png',
+    'assets/helmet.png',
+    'assets/left_wall.png',
+    'assets/limb.png',
+    'assets/machine_gun.png',
+    'assets/metal_bat.png',
+    'assets/pistol_reload.png',
+    'assets/pistol.png',
+    'assets/player_gun.png',
+    'assets/player_hold.png',
+    'assets/player_machine_gun_reload.png',
+    'assets/player_machine_gun.png',
+    'assets/player_standing.png',
+    'assets/right_wall.png',
+    'assets/start_flag.png',
+    'assets/zombie.png',
+    'assets/zombie_hit.png',
+];
+
+const rm = new ResourceManager();
+
+document.addEventListener("DOMContentLoaded", () => {
+    c = document.getElementById('canvas');
+    cc = c.getContext('2d');
+
+    const AgentsDemo = new Game(50);
+
+    const startDemo = () => {
+        let time = Date.now();
+        let dt = (AgentsDemo.initialTime - time) / 1000.0;
+
+        AgentsDemo.update(dt);
+        AgentsDemo.render();
+
+        AgentsDemo.initialTime = time;
+        requestAnimationFrame(startDemo);
+    }
+
+    // c.addEventListener('mousemove', e => {
+    //     const rect = c.getBoundingClientRect();
+    //     target = new Vector(e.clientX - rect.left, e.clientY - rect.top);
+    // });
+
+    // startDemo();
+    rm.load(assets);
+    rm.onReady(startDemo);
+});
 
 class Game {
-    constructor() {
+    constructor(cellCount) {
         this.initialTime = Date.now();
 
         // this.boid = new Boid(20, c.width * 3 / 4);
-        this.boid = new Boid(Math.random() * c.width, Math.random() * c.height);
         // const pathPoints = [
         // new Vector(0, c.height / 4),
         // new Vector(c.width / 12, c.height / 12),
@@ -304,13 +355,33 @@ class Game {
         ];
         this.path = new Path(2, pathPoints);
         // this.boid.follow(this.path.points, this.path.radius);
+
+        this.cellSize = 25; // for camera
+        this.width = cellCount * this.cellSize;
+        this.height = cellCount * this.cellSize;
+
+        // this.boid = new Boid(Math.random() * c.width, Math.random() * c.height);
+        this.enemy = new Enemy(Math.random() * c.width, Math.random() * c.height, this.cellSize);
+
+        // this.camera = new Camera(vpWidth, vpHeight, this.width, this.height, cellCount);
+        // this.map = new Map(cellCount, this.cellSize);
+
+        this.inputHandler = new InputManager();
+        // this.viewport = new Viewport(this.cellSize, cellCount);
+        this.player = new Player(this.cellSize, this.inputHandler, this.cellSize, cellCount);
+        // this.camera.follow(this.player);
+
+        this.initialTime = Date.now();
     }
 
     update(dt) {
         // this.boid.seek(target);
         // this.boid.arrive(target);
-        this.boid.follow(this.path, this.path.points, this.path.radius);
-        this.boid.update(dt);
+        // this.boid.follow(this.path, this.path.points, this.path.radius);
+        // this.boid.update(dt);
+        this.enemy.follow(this.path, this.path.points, this.path.radius);
+        this.enemy.update(dt);
+        this.player.update(dt);
     }
 
     render() {
@@ -322,8 +393,10 @@ class Game {
         //     cc.fillStyle = "#0ff";
         //     cc.fillRect(target.x - 30, target.y - 30, 60, 60);
         // }
-        this.path.render();
-        this.boid.render();
+        // this.path.render();
+        this.enemy.render();
+        // this.boid.render();
+        this.player.render();
     }
 }
 
@@ -419,7 +492,11 @@ class Boid extends Entity {
         // if (this.position.y < 0) this.position.y = c.height;
     }
 
+    handleRotation() { }
+
     update(dt) {
+        this.handleRotation();
+
         this.velocity.add(this.acceleration);
         // debugger
         // console.log(this.velocity);
@@ -466,13 +543,124 @@ class Boid extends Entity {
 }
 
 class Enemy extends Boid {
-    constructor(x, y) {
+    constructor(x, y, size) {
         super(x, y);
         rm.onReady(this.init.bind(this));
+        this.radius = size / 3;
+        this.perceptionRadius = 2 * this.radius;
     }
 
     init() {
         this.sprite = rm.get("assets/zombie.png");
+    }
+
+    handleRotation() {
+        // console.log('rotate');
+        const diff = Vector.sub(this.target, this.position);
+        this.angle = diff.getDirection();
+    }
+
+    render(offsetX, offsetY) {
+        cc.save();
+        cc.translate(this.position.x, this.position.y)
+        cc.rotate(this.angle);
+        cc.drawImage(this.sprite, -this.sprite.width / 2, -this.sprite.height / 2);
+        cc.restore();
+
+    }
+}
+
+class Player {
+    constructor(size, inputHandler, cellSize, cellCount) {
+        this.size = size / 3; //c.width / (size * 2);
+        // this.screenX = 0;
+        // this.screenY = 0;
+        // this.sprite = rm.get('assets/player_standing.png');
+        // console.log(this.sprite);
+        // this.width = this.sprite.width;
+        // this.height = this.sprite.height;
+        // console.log(this.width, this.height);
+        this.angle = 0;
+        window.addEventListener('mousemove', this.handleRotation.bind(this));
+        rm.onReady(this.init.bind(this));
+        this.position = {
+            x: this.size,
+            y: this.size
+        };
+
+        this.velocity = {
+            x: 0,
+            y: 0
+        };
+
+        this.speed = this.size * 20;
+
+
+        this.ih = inputHandler;
+
+        this.cellSize = cellSize;
+        this.cellCount = cellCount;
+    }
+
+    handleRotation(e) {
+        // this.updatePivot();
+
+        // this.angle = Math.atan2(e.clientY - this.regY, e.clientX - this.regX);
+        this.angle = Math.atan2(e.clientY - this.position.y - this.height / 2, e.clientX - this.position.x - this.width / 2);
+        // console.log(e.clientX, e.clientY);
+        // console.log(this.angle);
+
+        // this.angle = this.angle * (180 / Math.PI);
+
+        // if (this.angle < 0) {
+
+        //     this.angle = 360 - (-this.angle);
+
+        // }
+    }
+
+    init() {
+        window.sprite = this.sprite = rm.get('assets/player_standing.png');
+        this.width = this.sprite.width;
+        this.height = this.sprite.height;
+    }
+
+    updatePivot() {
+        this.regX = this.position.x + this.width / 2;
+        this.regY = this.position.y + this.height / 2;
+    }
+
+    handleInput() {
+        if (this.ih.isPressed(KEYS.UP)) {
+            this.velocity.y = this.speed;
+        } else if (this.ih.isPressed(KEYS.DOWN)) {
+            this.velocity.y = -this.speed;
+        } else {
+            this.velocity.y = 0;
+        }
+
+        if (this.ih.isPressed(KEYS.RIGHT)) {
+            this.velocity.x = -this.speed;
+        } else if (this.ih.isPressed(KEYS.LEFT)) {
+            this.velocity.x = this.speed;
+        } else {
+            this.velocity.x = 0;
+        }
+    }
+
+    update(dt) {
+        this.handleInput();
+        this.position.x += this.velocity.x * dt;
+        this.position.y += this.velocity.y * dt;
+    }
+
+    render(offsetX, offsetY) {
+        cc.save();
+        cc.translate(this.position.x, this.position.y)
+        cc.rotate(this.angle);
+        cc.drawImage(this.sprite, -this.width / 2, -this.height / 2);
+        cc.restore();
+
     }
 }
 
